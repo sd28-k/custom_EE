@@ -1,0 +1,39 @@
+---
+- name: Install ansible-builder and create custom_EE
+  hosts: localhost
+  become: yes
+
+  tasks:
+    - name: Install ansible-builder package in localhost
+      package:
+        name: ansible-builder
+        state: present
+
+    - name: Download RHCOS Live ISO Image
+      command: curl -o ~/rhcos-live.x86_64.iso https://mirror.openshift.com/pub/openshift-v4/x86_64/dependencies/rhcos/4.11/latest/rhcos-live.x86_64.iso
+
+    - name: Fetch the worker.ign
+      command: curl -o ~/worker.ign http://10.25.54.215:8080/ocp4/worker.ign
+
+    - name: Create execution_environment.yaml
+      copy:
+        content: |
+        ---
+        version: 1
+
+        build_arg_defaults:
+          EE_BASE_IMAGE: 'quay.io/coreos/coreos-installer:release'
+
+        ansible_config: '/etc/ansible/ansible.cfg'
+
+        #dependencies:
+        #  galaxy: requirements.yml
+
+        additional_build_steps:
+          append:
+          - RUN coreos-installer:release iso embed -i ~/worker.ign ~/rhcos-live.x86_64.iso
+
+        dest: ~/execution_environment.yaml
+
+    - name: Run ansible-builder command to build the image
+      command: ansible-builder build --tag my_custom_ee
